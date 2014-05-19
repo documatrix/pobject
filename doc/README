@@ -1,0 +1,4 @@
+# Compile
+
+To compile the dmtestib just enter following command in the root directory of the library:
+make
