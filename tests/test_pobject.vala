@@ -26,14 +26,29 @@ public class TestPObject
     return 0;
   }
 
-  [PObject (table_name = "my_object")]
+  [PObject ( table_name = "my_object", field_prefix = "my_" )]
   public class MyObject : PObject.Object
   {
+    [PObject ( field_name="id", primary_key = true ) ]
+    public uint64 id { get; set; }
+
+    [PObject ( field_name = "comment" )]
+    public string comment { get; set; }
   }
 
   public static void test_pobject_object_f_all( )
   {
+    MyObject m = new MyObject( );
+    m.comment = "obj4";
+    m.save( );
+    m.comment = "obj3";
+    m.save( );
+    
     MyObject[] objects = MyObject.all( );
+    foreach ( MyObject object in objects )
+    {
+      stdout.printf( "id: %llu, comment: %s\n", object.id, object.comment );
+    }
   }
   
   /**
@@ -50,6 +65,9 @@ public class TestPObject
     try
     {
       PObject.init( DBLib.DBType.MYSQL, "hostname=localhost;database=test", "root", null );
+      PObject.connection.execute( "drop table if exists my_object" );
+      PObject.connection.execute( "create table my_object ( my_id bigint auto_increment primary key, my_comment varchar(255) )" );
+      PObject.connection.execute( "insert into my_object (my_comment) value ('obj1'), ('obj2'), (NULL)" );
     }
     catch ( PObject.Error.DBERROR e )
     {

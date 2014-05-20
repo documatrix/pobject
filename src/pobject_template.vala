@@ -14,9 +14,9 @@ public static :object_class:[] all( ) throws PObject.Error.DBERROR
  * @return A PObjectSelector object with the settings to load PObjects.
  * @throws PObject.Error.DBERROR when an error occurs while loading the objects from the database.
  */
-public static PObjectSelector select( string fields = "*" ) throws PObject.Error.DBERROR
+public static PObject.PObjectSelector select( string fields = "*" ) throws PObject.Error.DBERROR
 {
-  return new PObjectSelector( typeof( :object_class: ), ":table_name:", fields ); 
+  return new PObject.PObjectSelector( typeof( :object_class: ), ":table_name:", fields ); 
 }
 
 /**
@@ -25,4 +25,6 @@ public static PObjectSelector select( string fields = "*" ) throws PObject.Error
 construct
 {
   this.table_name = ":table_name:";
+
+  this.notify.connect( this.pobject_field_changed );
 }

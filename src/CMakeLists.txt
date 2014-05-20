@@ -54,6 +54,14 @@ add_executable(
 )
 target_link_libraries( pobject ${POBJECT_NAME} )
 
+ADD_CUSTOM_TARGET( pobject_core_preprocessed DEPENDS pobject_core.vala )
+ADD_CUSTOM_COMMAND(
+  SOURCE src/pobject_core.vala
+  OUTPUT src/pobject_core.vala
+  COMMAND ${PREPROCESS_LOGGER} ${CMAKE_SOURCE_DIR}/src/ ../log/messages.mdb
+)
+ADD_DEPENDENCIES( ${POBJECT_NAME} pobject_core_preprocessed )
+
 ADD_CUSTOM_TARGET( pobject_preprocessed DEPENDS pobject.vala )
 ADD_CUSTOM_COMMAND(
   SOURCE src/pobject.vala

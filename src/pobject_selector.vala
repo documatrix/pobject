@@ -20,6 +20,11 @@ namespace PObject
     public string table_name;
 
     /**
+     * This variable contains the field-part for the select statement (the fields which will be selected).
+     */
+    public string fields;
+
+    /**
      * This method will execute a select statement which is represented by this PObjectSelector and creates and fills
      * the PObjects.
      * @return The resulting PObjects as array.
@@ -27,8 +32,29 @@ namespace PObject
      */
     public PObject.Object[] exec( ) throws PObject.Error.DBERROR
     {
-      stdout.printf( "selecting data from table %s", this.table_name );
-      return { };
+      string statement = "select %s from %s".printf( this.fields, this.table_name );
+
+      try
+      {
+        DMLogger.log.debug( 0, false, "[SQL] ${1};", statement );
+        DBLib.Statement stmt = PObject.connection.execute( statement );
+
+        PObject.Object[] result = { };
+
+        HashTable<string?,string?>? row;
+        while ( ( row = stmt.result.fetchrow_hash( ) ) != null )
+        {
+          PObject.Object o = (PObject.Object)GLib.Object.new( this.pobject_class );
+          o.set_db_data( row );
+          result += o;
+        }
+
+        return result;
+      }
+      catch ( DBLib.DBError e )
+      {
+        throw new PObject.Error.DBERROR( "Error while selecting objects from the database using statement %s! %s", statement, e.message );
+      }
     }
 
     /**
@@ -40,6 +66,7 @@ namespace PObject
     {
       this.pobject_class = pobject_class;
       this.table_name = table_name;
+      this.fields = fields;
 
       stdout.printf( "Creating pobject selector for class %s\n", pobject_class.name( ) );
     }
