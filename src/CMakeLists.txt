@@ -15,10 +15,12 @@ link_directories ( ${DEPS_LIBRARY_DIRS} )
 find_package (Vala REQUIRED)
 include( UseVala )
 
-set (POBJECT_SOURCES ${POBJECT_SOURCES} pobject.vala)
+set (POBJECT_LIB_SOURCES pobject_core.vala pobject_object.vala pobject_selector.vala)
 
-vala_precompile(POBJECT_VALA_C
-  ${POBJECT_SOURCES}
+set( POBJECT_SOURCES pobject.vala pobject_preprocessor.vala Config.vala )
+
+vala_precompile(POBJECT_LIB_VALA_C
+  ${POBJECT_LIB_SOURCES}
 PACKAGES
   ${VALA_PACKAGES}
 GENERATE_VAPI
@@ -33,8 +35,24 @@ OPTIONS
 
 add_library(
   ${POBJECT_NAME} SHARED
+  ${POBJECT_LIB_VALA_C}
+)
+
+vala_precompile(POBJECT_VALA_C
+  ${POBJECT_SOURCES}
+PACKAGES
+  ${VALA_PACKAGES}
+CUSTOM_VAPIS
+  ${CUSTOM_VAPIS_LIST} ${POBJECT_NAME}.vapi
+OPTIONS
+--thread -g --vapidir=${CMAKE_INSTALL_PREFIX}/share/vala/vapi
+)
+
+add_executable(
+  pobject
   ${POBJECT_VALA_C}
 )
+target_link_libraries( pobject ${POBJECT_NAME} )
 
 ADD_CUSTOM_TARGET( pobject_preprocessed DEPENDS pobject.vala )
 ADD_CUSTOM_COMMAND(
@@ -42,7 +60,7 @@ ADD_CUSTOM_COMMAND(
   OUTPUT src/pobject.vala
   COMMAND ${PREPROCESS_LOGGER} ${CMAKE_SOURCE_DIR}/src/ ../log/messages.mdb
 )
-ADD_DEPENDENCIES( ${POBJECT_NAME} pobject_preprocessed )
+ADD_DEPENDENCIES( pobject pobject_preprocessed )
 
 # CREATE PKGCONFIG FILES
 if(NOT DEFINED CMAKE_INSTALL_LIBDIR)
@@ -55,6 +73,14 @@ set(includedir  ${CMAKE_INSTALL_PREFIX}/include)
 set(LIBS         "")
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/libpobject.pc.in
   ${CMAKE_CURRENT_BINARY_DIR}/${POBJECT_NAME}.pc @ONLY)
+
+# Install pobject util
+install(
+TARGETS
+  pobject
+RUNTIME DESTINATION
+  bin/
+)
 
 # Install shared object
 install(
@@ -70,6 +96,22 @@ FILES
   ${CMAKE_CURRENT_BINARY_DIR}/pobject.h
 DESTINATION
   include/${POBJECT_NAME}/
+)
+
+# Install message database
+install(
+FILES
+  ../log/messages.mdb
+DESTINATION
+  share/pobject/log/
+)
+
+# Install template files
+install(
+FILES
+  pobject_template.vala
+DESTINATION
+  share/pobject/templates/
 )
 
 # Install vapi files

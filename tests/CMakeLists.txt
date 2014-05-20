@@ -40,6 +40,23 @@ RUNTIME DESTINATION
   bin/
 )
 
+ADD_CUSTOM_TARGET( test_pobject_preprocessed DEPENDS test_pobject.vala )
+ADD_CUSTOM_COMMAND(
+  SOURCE tests/test_pobject.vala
+  OUTPUT tests/test_pobject.vala
+  COMMAND ${PREPROCESS_LOGGER} ${CMAKE_SOURCE_DIR}/tests/ ../log/messages.mdb
+  COMMAND ../src/pobject --template-path=../src/ -l -m ../log/messages.mdb preprocess ${CMAKE_SOURCE_DIR}/tests/
+)
+ADD_DEPENDENCIES( test_pobject test_pobject_preprocessed )
+
+#ADD_CUSTOM_TARGET( test_pobject_pobject_preprocessed DEPENDS test_pobject_preprocessed )
+#ADD_CUSTOM_COMMAND(
+#  SOURCE tests/test_pobject.vala
+#  OUTPUT tests/test_pobject.vala
+#  COMMAND src/pobject --template-dir=src/ preprocess ${CMAKE_SOURCE_DIR}/tests/
+#)
+#ADD_DEPENDENCIES( test_pobject test_pobject_pobject_preprocessed )
+
 if(HAVE_VALADOC)
   valadoc(pobject
     ${CMAKE_BINARY_DIR}/valadoc/pobject
