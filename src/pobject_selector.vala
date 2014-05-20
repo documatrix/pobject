@@ -25,6 +25,27 @@ namespace PObject
     public string fields;
 
     /**
+     * This variable contains the where-clause of the resulting select statement.
+     */
+    private string? where_clause = null;
+
+    /**
+     * This variable may contain parameters which are passed to the statement.
+     */
+    private string?[] statement_params = { };
+
+    /**
+     * This variabale specifies if the limit_count should be used in the limit clause of the resulting select statement.
+     */
+    private bool use_limit = false;
+
+    /**
+     * This variable will be used as limit count in the limit clause of the resulting select statement if
+     * @see PObjectSelector.use_limit is true.
+     */
+    private uint64 limit_count = 0;
+
+    /**
      * This method will execute a select statement which is represented by this PObjectSelector and creates and fills
      * the PObjects.
      * @return The resulting PObjects as array.
@@ -32,12 +53,29 @@ namespace PObject
      */
     public PObject.Object[] exec( ) throws PObject.Error.DBERROR
     {
-      string statement = "select %s from %s".printf( this.fields, this.table_name );
+      StringBuilder statement = new StringBuilder.sized( 10 );
+      statement.append_printf( "select %s from %s", this.fields, this.table_name );
+
+      if ( this.where_clause != null )
+      {
+        statement.append( " where " );
+        statement.append( this.where_clause );
+      }
+
+      if ( this.use_limit )
+      {
+        statement.append_printf( " limit %llu", this.limit_count );
+      }
 
       try
       {
-        DMLogger.log.debug( 0, false, "[SQL] ${1};", statement );
-        DBLib.Statement stmt = PObject.connection.execute( statement );
+        DMLogger.log.debug( 0, false, "[SQL] ${1};", statement.str );
+        DBLib.Statement stmt = PObject.connection.prepare( statement.str );
+        if ( this.statement_params.length > 0 )
+        {
+          stmt.set_params( this.statement_params );
+        }
+        stmt.execute( );
 
         PObject.Object[] result = { };
 
@@ -69,6 +107,48 @@ namespace PObject
       this.fields = fields;
 
       stdout.printf( "Creating pobject selector for class %s\n", pobject_class.name( ) );
+    }
+
+    /**
+     * This method can be used to set a where clause for the resulting select statement.
+     * If there is already a where clause then it will connected to this where clause by an "and" operator.
+     * @param code The code of the resulting where clause.
+     * @param ... Parameters which replace question marks in the given code.
+     * @return this
+     */
+    public PObjectSelector where( string code, ... )
+    {
+      va_list params = va_list( );
+      unowned string? param;
+      while ( ( param = params.arg<string?>( ) ) != null )
+      {
+        this.statement_params += param;
+      }
+
+      if ( this.where_clause == null )
+      {
+        this.where_clause = code;
+      }
+      else
+      {
+        this.where_clause += " and " + code;
+      }
+
+      return this;
+    }
+
+    /**
+     * This method can be used to specify, that the resulting select statement should get a limit clause using the given
+     * values.
+     * @param limit_count The maximum count of rows returned by this selector.
+     * @return this
+     */
+    public PObjectSelector limit( uint64 limit_count )
+    {
+      this.use_limit = true;
+      this.limit_count = limit_count;
+
+      return this;
     }
   }
 }

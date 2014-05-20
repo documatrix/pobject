@@ -43,6 +43,10 @@ public class TestPObject
     m.save( );
     m.comment = "obj3";
     m.save( );
+
+    MyObject m2 = MyObject.find( m.id );
+    stdout.printf( "m2 comment: %s\n", m.id.to_string( ) );
+    assert( m2.comment == m.comment );
     
     MyObject[] objects = MyObject.all( );
     foreach ( MyObject object in objects )

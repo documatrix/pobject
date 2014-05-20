@@ -314,11 +314,8 @@ namespace PObject
       {
         code += "\nprivate bool pobject_%s_changed = false;\n".printf( field.field_name );
 
-        if ( field != this.primary_key_field )
-        {
-          _field_names += field.db_field_name;
-          _values += "PObject.connection.escape(" + field.get_convert_to_db( "this." + field.field_name ) + ")";
-        }
+        _field_names += field.db_field_name;
+        _values += "PObject.connection.escape(" + field.get_convert_to_db( "this." + field.field_name ) + ")";
       }
       string field_names = string.joinv( ", ", _field_names );
       string values = "\" + " + string.joinv( " + \", \" + ", _values ) + " + \"";
@@ -404,9 +401,17 @@ namespace PObject
                 "}\n";
 
         /* Add find method */
-        code += "public " + this.class_name + "? find( " + this.primary_key_field.non_null_type + " " + this.primary_key_field.field_name + ")\n" +
+        code += "public static " + this.class_name + "? find( " + this.primary_key_field.non_null_type + " " + this.primary_key_field.field_name + ")\n" +
                 "{\n" +
-                "  return null;\n" +
+                "  " + this.class_name + "[]? result = (" + this.class_name + "[])" + this.class_name + ".select( ).where( \"" + this.primary_key_field.db_field_name + " = ?\", " + this.primary_key_field.get_convert_to_db( this.primary_key_field.field_name ) + " ).limit( 1 ).exec( );\n" +
+                "  if ( result.length > 0 )\n" +
+                "  {\n" +
+                "    return result[ 0 ];\n" +
+                "  }\n" +
+                "  else\n" +
+                "  {\n" +
+                "    return null;\n" +
+                "  }\n" +
                 "}\n";
       }
 
