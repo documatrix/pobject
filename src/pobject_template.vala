@@ -16,5 +16,13 @@ public static :object_class:[] all( ) throws PObject.Error.DBERROR
  */
 public static PObjectSelector select( string fields = "*" ) throws PObject.Error.DBERROR
 {
-  return new PObjectSelector( typeof( :object_class: ), fields ); 
+  return new PObjectSelector( typeof( :object_class: ), ":table_name:", fields ); 
+}
+
+/**
+ * This constructor initializes the needed values for the PObject methods.
+ */
+construct
+{
+  this.table_name = ":table_name:";
 }

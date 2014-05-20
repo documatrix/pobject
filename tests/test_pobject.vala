@@ -26,6 +26,7 @@ public class TestPObject
     return 0;
   }
 
+  [PObject (table_name = "my_object")]
   public class MyObject : PObject.Object
   {
   }

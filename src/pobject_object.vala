@@ -15,5 +15,10 @@ namespace PObject
      * to be inserted.
      */
     public bool new_record = true;
+
+    /**
+     * This variable will contain the name of the database table which will be used to store this PObject.
+     */
+    public string table_name;
   }
 }
