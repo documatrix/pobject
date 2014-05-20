@@ -72,6 +72,6 @@ namespace PObject
      * This method will update the object into the database using an update statement.
      * @throws DBLib.DBError when an error occurs while updating the object.
      */
-    public abstract void update( ) throws DBLib.DBError;
+    public abstract void update( ) throws DBLib.DBError; 
   }
 }

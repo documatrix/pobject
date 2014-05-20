@@ -120,6 +120,18 @@ namespace PObject
     public string type;
 
     /**
+     * This variable contains the vala type of the field (like @see PObjectField.type) but it just contains the non-null
+     * version of the type.
+     * So non_null_type may contain the same value like type does.
+     */
+    public string non_null_type;
+
+    /**
+     * This variable indicates if the field may contain null values.
+     */
+    public bool nullable_type;
+
+    /**
      * This variable contains the annotation which was just before the field definition.
      */
     public PObjectAnnotation field_annotation;
@@ -148,6 +160,17 @@ namespace PObject
       this.gobject_field_name = this.field_name.replace( "_", "-" );
       this.type = type;
       this.field_annotation = field_annotation;
+
+      if ( this.type.has_suffix( "?" ) )
+      {
+        this.nullable_type = true;
+        this.non_null_type = this.type.substring( 0, -2 );
+      }
+      else
+      {
+        this.nullable_type = false;
+        this.non_null_type = this.type;
+      }
 
       this.db_field_name = ( this.klass.class_annotation.values[ "field_prefix" ] ?? "" ) + this.field_annotation.values[ "field_name" ];
       this.primary_key = bool.parse( this.field_annotation.values[ "primary_key" ] ?? "false" );
@@ -290,8 +313,12 @@ namespace PObject
       foreach ( unowned PObjectField field in this.fields.get_values( ) )
       {
         code += "\nprivate bool pobject_%s_changed = false;\n".printf( field.field_name );
-        _field_names += field.db_field_name;
-        _values += "PObject.connection.escape(" + field.get_convert_to_db( "this." + field.field_name ) + ")";
+
+        if ( field != this.primary_key_field )
+        {
+          _field_names += field.db_field_name;
+          _values += "PObject.connection.escape(" + field.get_convert_to_db( "this." + field.field_name ) + ")";
+        }
       }
       string field_names = string.joinv( ", ", _field_names );
       string values = "\" + " + string.joinv( " + \", \" + ", _values ) + " + \"";
@@ -350,9 +377,9 @@ namespace PObject
       }
       code += "}\n";
 
-      /* Add update method */
       if ( this.primary_key_field != null )
       {
+        /* Add update method */
         code += "public override void update( ) throws DBLib.DBError\n" +
                 "{\n" +
                 "  bool first = true;\n" +
@@ -374,6 +401,12 @@ namespace PObject
         }
         code += "  statement.append( \" where " + this.primary_key_field.db_field_name + " = \" + PObject.connection.escape( " + primary_key_field.get_convert_to_db( "this." + primary_key_field.field_name ) + ") );\n" +
                 "  PObject.connection.execute( statement.str );\n" +
+                "}\n";
+
+        /* Add find method */
+        code += "public " + this.class_name + "? find( " + this.primary_key_field.non_null_type + " " + this.primary_key_field.field_name + ")\n" +
+                "{\n" +
+                "  return null;\n" +
                 "}\n";
       }
 

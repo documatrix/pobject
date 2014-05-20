@@ -117,7 +117,18 @@ namespace PObject
             PObject.preprocess( args[ i ] );
           }
           break;
-          
+
+        case "generate":
+          if ( args.length <= 2 )
+          {
+            DMLogger.log.error( 0, false, "I do not know what to generate! Please specify a generate-type!" );
+          }
+          else
+          {
+            PObject.generate( args );
+          }
+          break;
+
         default:
           DMLogger.log.error( 0, false, "Specified command ${1} is not a valid command!", args[ 1 ] );
           break;

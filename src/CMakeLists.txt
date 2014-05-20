@@ -17,7 +17,7 @@ include( UseVala )
 
 set (POBJECT_LIB_SOURCES pobject_core.vala pobject_object.vala pobject_selector.vala)
 
-set( POBJECT_SOURCES pobject.vala pobject_preprocessor.vala Config.vala )
+set( POBJECT_SOURCES pobject.vala pobject_preprocessor.vala pobject_generator.vala Config.vala )
 
 vala_precompile(POBJECT_LIB_VALA_C
   ${POBJECT_LIB_SOURCES}
