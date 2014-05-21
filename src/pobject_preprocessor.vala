@@ -356,7 +356,7 @@ namespace PObject
       code += "      }\n" +
               "    }\n" +
               "  }\n" +
-              "  this.freeze_notify( );\n" +
+              "  this.thaw_notify( );\n" +
               "}\n";
 
       /* Add insert method */
@@ -401,7 +401,7 @@ namespace PObject
                 "}\n";
 
         /* Add find method */
-        code += "public static " + this.class_name + "? find( " + this.primary_key_field.non_null_type + " " + this.primary_key_field.field_name + ")\n" +
+        code += "public static " + this.class_name + "? find( " + this.primary_key_field.non_null_type + " " + this.primary_key_field.field_name + " )\n" +
                 "{\n" +
                 "  " + this.class_name + "[]? result = (" + this.class_name + "[])" + this.class_name + ".select( ).where( \"" + this.primary_key_field.db_field_name + " = ?\", " + this.primary_key_field.get_convert_to_db( this.primary_key_field.field_name ) + " ).limit( 1 ).exec( );\n" +
                 "  if ( result.length > 0 )\n" +

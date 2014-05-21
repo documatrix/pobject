@@ -33,12 +33,17 @@ namespace PObject
   /**
    * If log_to_console is set, the output will be logged to the console.
    */
-  static bool log_to_console = false;
+  static bool log_to_console = true;
 
   /**
    * This variable contains the path to the template files for the preprocessor.
    */
   static string? template_path = null;
+
+  /**
+   * This variable contains the path which contains the migration files.
+   */
+  static string? migrations_path = null;
 
   /**
    * These option entries will be used to read the command-line parameters.
@@ -49,6 +54,7 @@ namespace PObject
     { "log-to-console", 'l', 0, OptionArg.NONE, ref log_to_console, "Log output direct to console (default off)", null },
     { "mdbfile", 'm', 0, OptionArg.STRING, ref mdb_file, "Filename of the Message-Database-File", "Message-Database-File" },
     { "template-path", 't', 0, OptionArg.STRING, ref template_path, "Directory containing the template files for the pobject preprocessor", "Template directory" },
+    { "migrations-path", 'M', 0, OptionArg.STRING, ref migrations_path, "Directory containing the migration files of the project", "Migrations directory" },
     { null }
   };
 
@@ -74,6 +80,16 @@ namespace PObject
       if ( PObject.template_path == null )
       {
         PObject.template_path = OpenDMLib.get_dir( OpenDMLib.get_dir( Constants.DATADIR ) + "pobject/templates" );
+      }
+
+      if ( PObject.migrations_path == null )
+      {
+        PObject.migrations_path = "./src/";
+      }
+
+      if ( mdb_file == null )
+      {
+        mdb_file = OpenDMLib.ensure_ps( OpenDMLib.get_dir( Constants.DATADIR ) + "pobject/log/messages.mdb" );
       }
       
       if ( PObject.print_version == true )

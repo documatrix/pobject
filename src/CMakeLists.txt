@@ -15,7 +15,7 @@ link_directories ( ${DEPS_LIBRARY_DIRS} )
 find_package (Vala REQUIRED)
 include( UseVala )
 
-set (POBJECT_LIB_SOURCES pobject_core.vala pobject_object.vala pobject_selector.vala)
+set( POBJECT_LIB_SOURCES pobject_core.vala pobject_object.vala pobject_selector.vala pobject_migration.vala )
 
 set( POBJECT_SOURCES pobject.vala pobject_preprocessor.vala pobject_generator.vala Config.vala )
 
