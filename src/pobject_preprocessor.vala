@@ -95,6 +95,18 @@ namespace PObject
   }
 
   /**
+   * Objects of this class represent relations between objects which should be generated.
+   */
+  public class PObjectRelation : GLib.Object
+  {
+    public string relation_name;
+
+    public string related_class_name;
+
+    public unowned PObjectField foreign_key;
+  }
+
+  /**
    * Objects of this class represent fields of PObject classes.
    */
   public class PObjectField : GLib.Object
@@ -214,6 +226,9 @@ namespace PObject
         case "uint8":
           return "(uint8)uint64.parse( %s )".printf( val_expr );
 
+        case "bool":
+          return "int.parse( %s ) != 0".printf( val_expr );
+
         default:
           return "";
       }
@@ -240,6 +255,9 @@ namespace PObject
         case "int8":
         case "uint8":
           return "%s.to_string( )".printf( val_expr );
+
+        case "bool":
+          return "%s ? \"1\" : \"0\"".printf( val_expr );
 
         default:
           return "";
