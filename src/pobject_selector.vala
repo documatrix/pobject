@@ -57,6 +57,24 @@ namespace PObject
     public string? order_by = null;
 
     /**
+     * This method will call the @see PObjectSelector.exec method to execute the select statement.
+     * The difference to exec is, that "first" will set the limit count to 1 and return the first found object
+     * or null if no object was found.
+     */
+    public PObject.Object? first( ) throws PObject.Error.DBERROR
+    {
+      this.limit( 1 );
+
+      PObject.Object[] result = this.exec( );
+
+      if ( result.length > 0 )
+      {
+        return result[ 0 ];
+      }
+      return null;
+    }
+    
+    /**
      * This method will execute a select statement which is represented by this PObjectSelector and creates and fills
      * the PObjects.
      * @return The resulting PObjects as array.
@@ -72,7 +90,7 @@ namespace PObject
         statement.append( " where " );
         statement.append( this.where_clause );
       }
- 
+
       if ( this.use_order_by && this.order_by != null )
       {
         statement.append_printf( " order by %s", this.order_by );
