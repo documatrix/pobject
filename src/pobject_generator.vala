@@ -42,6 +42,13 @@ namespace PObject
     }
 
     string migration_file = PObject.migrations_path + migration_name + ".vala";
+
+    if ( OpenDMLib.IO.file_exists( migration_file ) )
+    {
+      DMLogger.log.error( 0, false, "Migration ${1} is already existing!", migration_file );
+      return;
+    }
+
     string class_init_file = PObject.migrations_path + "init_migrations.vala";
     DMLogger.log.info( 0, false, "Creating migration file ${1}", migration_file );
     string date_time = new OpenDMLib.DMDateTime.now_local( ).format( "%Y%m%d%H%M%S" );
