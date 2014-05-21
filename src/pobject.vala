@@ -84,8 +84,9 @@ namespace PObject
 
       if ( PObject.migrations_path == null )
       {
-        PObject.migrations_path = "./src/";
+        PObject.migrations_path = "./src/migrations/";
       }
+      PObject.migrations_path = OpenDMLib.get_dir( PObject.migrations_path );
 
       if ( mdb_file == null )
       {

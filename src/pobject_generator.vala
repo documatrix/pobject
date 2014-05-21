@@ -41,7 +41,8 @@ namespace PObject
       return;
     }
 
-    string migration_file = OpenDMLib.get_dir( PObject.migrations_path ) + migration_name + ".vala";
+    string migration_file = PObject.migrations_path + migration_name + ".vala";
+    string class_init_file = PObject.migrations_path + "init_migrations.vala";
     DMLogger.log.info( 0, false, "Creating migration file ${1}", migration_file );
     string date_time = new OpenDMLib.DMDateTime.now_local( ).format( "%Y%m%d%H%M%S" );
     try
@@ -51,7 +52,7 @@ namespace PObject
       fout.puts( "
 public class " + migration_name + " : PObject.Migration
 {
-  public " + migration_name + "( )
+  construct
   {
     this.migration_name = \"" + migration_name + "\";
     this.migration_date_time = \"" + date_time + "\";
@@ -60,7 +61,7 @@ public class " + migration_name + " : PObject.Migration
   /**
    * @see PObject.Migration.up
    */
-  public void up( ) throws DBLib.DBError, PObject.Error
+  public override void up( ) throws DBLib.DBError, PObject.Error
   {
     /* Write code to make changes on the database. */
   }
@@ -68,7 +69,7 @@ public class " + migration_name + " : PObject.Migration
   /**
    * @see PObject.Migration.down
    */
-  public void down( ) throws DBLib.DBError, PObject.Error
+  public override void down( ) throws DBLib.DBError, PObject.Error
   {
     /* Write code to revert the changes made by \"up\" on the database. */
   }
@@ -76,7 +77,7 @@ public class " + migration_name + " : PObject.Migration
 " );
 
       /* Register migration in migrations.json */
-      string migrations_json = OpenDMLib.get_dir( PObject.migrations_path ) + "migrations.json";
+      string migrations_json = PObject.migrations_path + "migrations.json";
       try
       {
         Json.Object migrations;
@@ -98,6 +99,20 @@ public class " + migration_name + " : PObject.Migration
         migration_object.set_string_member( "migration", migration_name );
         migration_object.set_string_member( "date_time", date_time );
         migrations_array.add_object_element( migration_object );
+
+        /* Rewrite migration-class-initialization vala file */
+        fout = OpenDMLib.IO.open( class_init_file, "wb" );
+        fout.puts( "
+/**
+ * This file contains the initialize_migration_classes method which has to be called by PObject to initialize.
+ */
+public void initialize_migration_classes( )
+{\n" );
+        for ( uint i = 0; i < migrations_array.get_length( ); i ++ )
+        {
+          fout.puts( "  typeof( " + migrations_array.get_object_element( i ).get_string_member( "migration" ) + " ).name( );\n" );
+        }
+        fout.puts( "}\n" );
 
         Json.Node root = new Json.Node( Json.NodeType.OBJECT );
         root.set_object( migrations );
