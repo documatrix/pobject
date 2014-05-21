@@ -197,7 +197,7 @@ namespace PObject
      */
     public string get_convert_from_db( string val_expr )
     {
-      switch ( this.type )
+      switch ( this.non_null_type )
       {
         case "string":
           return val_expr;
@@ -241,7 +241,7 @@ namespace PObject
      */
     public string get_convert_to_db( string val_expr )
     {
-      switch ( this.type )
+      switch ( this.non_null_type )
       {
         case "string":
           return val_expr;

@@ -46,6 +46,17 @@ namespace PObject
     private uint64 limit_count = 0;
 
     /**
+     * This variable specifies if the order_by should be used in the order-by clause of the resulting select statement.
+     */
+    public bool use_order_by = false;
+
+    /**
+     * This variable will be used as order-by-statement in the order-by clause of the resulting select statement if
+     * @see PObjectSelector.use_order_by is true.
+     */
+    public string? order_by = null;
+
+    /**
      * This method will execute a select statement which is represented by this PObjectSelector and creates and fills
      * the PObjects.
      * @return The resulting PObjects as array.
@@ -60,6 +71,11 @@ namespace PObject
       {
         statement.append( " where " );
         statement.append( this.where_clause );
+      }
+ 
+      if ( this.use_order_by && this.order_by != null )
+      {
+        statement.append_printf( " order by %s", this.order_by );
       }
 
       if ( this.use_limit )
@@ -147,6 +163,21 @@ namespace PObject
     {
       this.use_limit = true;
       this.limit_count = limit_count;
+
+      return this;
+    }
+
+    /**
+     * This method can be used to specify that the resulting select statement should get a order-by clause using
+     * the given code.
+     * Any previously set order-by code will be overwritten by this method.
+     * @param order_by The code which should be used in the order-by clause.
+     * @return this
+     */
+    public PObjectSelector order( string code )
+    {
+      this.use_order_by = true;
+      this.order_by = code;
 
       return this;
     }
