@@ -419,16 +419,29 @@ namespace PObject
                 "}\n";
 
         /* Add find method */
-        code += "public static " + this.class_name + "? find( " + this.primary_key_field.non_null_type + " " + this.primary_key_field.field_name + " )\n" +
+        code += "public static " + this.class_name + "? find( " + this.primary_key_field.non_null_type + " " + this.primary_key_field.field_name + " ) throws PObject.Error.DBERROR\n" +
                 "{\n" +
-                "  " + this.class_name + "[]? result = (" + this.class_name + "[])" + this.class_name + ".select( ).where( \"" + this.primary_key_field.db_field_name + " = ?\", " + this.primary_key_field.get_convert_to_db( this.primary_key_field.field_name ) + " ).limit( 1 ).exec( );\n" +
-                "  if ( result.length > 0 )\n" +
+                "  return (" + this.class_name + "?)" + this.class_name + ".select( ).where( \"" + this.primary_key_field.db_field_name + " = ?\", " + this.primary_key_field.get_convert_to_db( this.primary_key_field.field_name ) + " ).first( );\n" +
+                "}\n";
+
+        /* Add delete method */
+        code += "public override void delete( ) throws PObject.Error.DBERROR\n" +
+                "{\n" +
+                "  if ( this.new_record )\n" +
                 "  {\n" +
-                "    return result[ 0 ];\n" +
+                "    throw new PObject.Error.DBERROR( \"Tried to delete a record which does not exist in the database!\" );\n" +
                 "  }\n" +
                 "  else\n" +
                 "  {\n" +
-                "    return null;\n" +
+                "    try\n" +
+                "    {\n" +
+                "      PObject.connection.execute( \"delete from " + this.class_annotation.values[ "table_name" ] + " where " + this.primary_key_field.db_field_name + " = \" + PObject.connection.escape( " + this.primary_key_field.get_convert_to_db( "this." + this.primary_key_field.field_name ) + " ) );\n" +
+                "    }\n" +
+                "    catch ( DBLib.DBError e )\n" +
+                "    {\n" +
+                "      throw new PObject.Error.DBERROR( \"Error while deleting a record from database! %s!\", e.message );\n" +
+                "    }\n" +
+                "    this.new_record = true;\n" +
                 "  }\n" +
                 "}\n";
       }
