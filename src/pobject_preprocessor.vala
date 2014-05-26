@@ -444,6 +444,30 @@ namespace PObject
                 "    this.new_record = true;\n" +
                 "  }\n" +
                 "}\n";
+
+        /* Add reload method */
+        code += "public override bool reload( ) throws PObject.Error.DBERROR\n" +
+                "{\n" +
+                "  if ( this.new_record )\n" +
+                "  {\n" +
+                "    return false;\n" +
+                "  }\n" +
+                "  try\n" +
+                "  {\n" +
+                "    DBLib.Statement stmt = PObject.connection.execute( \"select * from " + this.class_annotation.values[ "table_name" ] + " where " + this.primary_key_field.db_field_name + " = \" + PObject.connection.escape( " + this.primary_key_field.get_convert_to_db( "this." + this.primary_key_field.field_name ) + " ) );\n" +
+                "    HashTable<string?,string?>? row;\n" +
+                "    if ( ( row = stmt.result.fetchrow_hash( ) ) != null )\n" +
+                "    {\n" +
+                "      this.set_db_data( row );\n" +
+                "      return true;\n" +
+                "    }\n" +
+                "    return false;\n" +
+                "  }\n" +
+                "  catch ( DBLib.DBError e )\n" +
+                "  {\n" +
+                "    throw new PObject.Error.DBERROR( \"Error while reloading object from the database! %s\", e.message );\n" +
+                "  }\n" +
+                "}\n";
       }
 
       return code;

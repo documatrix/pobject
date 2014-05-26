@@ -78,5 +78,13 @@ namespace PObject
      * This method will delete the object from the database using the delete statement.
      */
     public abstract void delete( ) throws PObject.Error.DBERROR;
+
+    /**
+     * This method will reload the object from the database if it was already stored
+     * to the database.
+     * @return true if the object was reloaded or false if the object was not stored in the database until now.
+     * @throws PObject.Error.DBERROR if an error occured while executing SQL statements.
+     */
+    public abstract bool reload( ) throws PObject.Error.DBERROR;
   }
 }
