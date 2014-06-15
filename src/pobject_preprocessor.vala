@@ -9,6 +9,9 @@ namespace PObject
    */
   public static const string PREPROCESSED_HEADER = "/* POBJECT PREPROCESSED */";
 
+  private static HashTable<string?,PObjectClass?> classes;
+  private static HashTable<int64?,string?> class_lines;
+
   /**
    * This method can be called for a file or directory to process it.
    * If the passed path is a directory it will iterate recursively through the directory tree.
@@ -16,6 +19,16 @@ namespace PObject
    * @param path A path to a directory or file which should be preprocessed using the preprocess_file method.
    */
   public void preprocess( string path )
+  {
+    PObject.classes = new HashTable<string?,PObjectClass?>( str_hash, str_equal );
+    PObject.class_lines = new HashTable<int64?,string?>( int64_hash, int64_equal );
+
+    OpenDMLib.DMArray<string> files = new OpenDMLib.DMArray<string>( );
+    preprocess_first_pass( path, files );
+    preprocess_second_pass( files );
+  }
+
+  public void preprocess_first_pass( string path, OpenDMLib.DMArray<string> files )
   {
     if ( OpenDMLib.IO.file_exists( path ) )
     {
@@ -27,18 +40,30 @@ namespace PObject
         {
           if ( name != "." && name != ".." )
           {
-            preprocess( OpenDMLib.get_dir( path ) + name );
+            preprocess_first_pass( OpenDMLib.get_dir( path ) + name, files );
           }
         }
       }
       else if ( path.has_suffix( ".vala" ) )
       {
         preprocess_file( path );
+        files.push( path );
       }
     }
     else
     {
       DMLogger.log.error( 0, false, "Path ${1} does not exist!", path );
+    }
+  }
+
+  public void preprocess_second_pass( OpenDMLib.DMArray<string> files )
+  {
+    DMLogger.log.info( 0, false, "Preprocessing second pass..." );
+
+    foreach ( string file in files )
+    {
+      DMLogger.log.info( 0, false, "Second pass for ${1}", file );
+      preprocess_file_second_pass( file );
     }
   }
 
@@ -92,18 +117,6 @@ namespace PObject
     {
       return /^\s*\[\s*PObject[^\]]*\]\s*$/.match( code_line );
     }
-  }
-
-  /**
-   * Objects of this class represent relations between objects which should be generated.
-   */
-  public class PObjectRelation : GLib.Object
-  {
-    public string relation_name;
-
-    public string related_class_name;
-
-    public unowned PObjectField foreign_key;
   }
 
   /**
@@ -184,7 +197,7 @@ namespace PObject
         this.non_null_type = this.type;
       }
 
-      this.db_field_name = ( this.klass.class_annotation.values[ "field_prefix" ] ?? "" ) + this.field_annotation.values[ "field_name" ];
+      this.db_field_name = ( this.klass.class_annotation.values[ "field_prefix" ] ?? "" ) + ( this.field_annotation.values[ "field_name" ] ?? this.field_name );
       this.primary_key = bool.parse( this.field_annotation.values[ "primary_key" ] ?? "false" );
 
       DMLogger.log.debug( 0, false, "Found field ${1} - db field ${2}", this.field_name, this.db_field_name );
@@ -263,6 +276,216 @@ namespace PObject
           return "";
       }
     }
+
+    /**
+     * This method returns the code which will add the field to a json object.
+     * It will only create the method call (not the object itself).
+     * @param val_expr The expression which will return the value in the final code.
+     * @return The code which will invoke a method on a Json.Object object to add the field value.
+     */
+    public string get_convert_to_json( string val_expr )
+    {
+      string code = "";
+      switch ( this.non_null_type )
+      {
+        case "string":
+          code = "set_string_member( \"%s\", %s )";
+          break;
+
+        case "int64":
+        case "uint64":
+        case "int32":
+        case "uint32":
+        case "int16":
+        case "uint16":
+        case "int8":
+        case "uint8":
+          code = "set_int_member( \"%s\", (int64)%s )";
+          break;
+
+        case "bool":
+          code = "set_boolean_member( \"%s\", %s )";
+          break;
+
+        default:
+          return "";
+      }
+
+      return code.printf( this.field_name, val_expr );
+    }
+  }
+
+  /**
+   * This enum contains the possible relation types.
+   */
+  public enum RelationType
+  {
+    /**
+     * This relation type says that ObjectA has a reference to ObjectB via an object_b_id field in the ObjectA
+     * class.
+     */
+    HAS_ONE;
+  }
+
+  /**
+   * Objects of this class represent relations between objects.
+   */
+  public class PObjectRelation : GLib.Object
+  {
+    /**
+     * This variable contains the vala variable name of the relation.
+     */
+    public string field_name;
+
+    /**
+     * This variable contains the (optionally created) foreign_key which references the object in this class.
+     */
+    public PObjectField? local_foreign_key;
+
+    /**
+     * This variable contains the type of the relation.
+     */
+    public RelationType relation_type;
+
+    /**
+     * This variable contains the annotation which was just before the field definition.
+     */
+    public PObjectAnnotation field_annotation;
+
+    /**
+     * The PObjectClass object which contains the newly created field.
+     */
+    public unowned PObjectClass klass;
+
+    /**
+     * This variable contains the vala data type of the related object.
+     */
+    public string type;
+
+    /**
+     * This variable contains the vala type of the field (like @see PObjectRelation.type) but it just contains the non-null
+     * version of the type.
+     * So non_null_type may contain the same value like type does.
+     */
+    public string non_null_type;
+
+    /**
+     * This variable indicates if the field may contain null values.
+     */
+    public bool nullable_type;
+
+    /**
+     * This variable contains the gobject-style field name.
+     */
+    public string gobject_field_name;
+
+    /**
+     * This constructor creates a new PObjectRelation object and initializes the values.
+     * @param klass @see PObjectRelation.klass
+     * @param field_name @see PObjectRelation.field_name
+     * @param type @see PObjectRelation.type
+     * @param field_annotation @see PObjectRelation.field_annotation
+     */
+    public PObjectRelation( PObjectClass klass, string field_name, string type, RelationType relation_type, PObjectField local_foreign_key )
+    {
+      this.klass = klass;
+      this.field_name = field_name;
+      this.gobject_field_name = this.field_name.replace( "_", "-" );
+      this.non_null_type = type;
+      this.field_annotation = field_annotation;
+      this.local_foreign_key = local_foreign_key;
+
+      if ( this.local_foreign_key.type.has_suffix( "?" ) )
+      {
+        this.nullable_type = true;
+        this.type = type;
+      }
+      else
+      {
+        this.nullable_type = false;
+        this.type = type + "?";
+      }
+
+      DMLogger.log.debug( 0, false, "Found relation ${1}", this.field_name );
+    }
+
+    /**
+     * This method will return the vala code which represents the relation as property and will be inserted
+     * to the final class code.
+     * @return Vala code which represents the relation as property.
+     */
+    public string get_vala_code( )
+    {
+      PObjectClass related_class = classes[ this.non_null_type ];
+
+      string code = "private " + this.non_null_type + "? pobject_" + this.field_name + ";\n" +
+                     "public " + this.type + " " + this.field_name + "{\n" +
+                     "  get\n" +
+                     "  {\n" +
+                     "    if ( this.pobject_" + this.field_name + " == null )\n" +
+                     "    {\n" +
+                     "      this.pobject_" + this.field_name + " = " + this.non_null_type + ".find( this." + this.local_foreign_key.field_name + " );\n" + 
+                     "    }\n" +
+                     "    return this.pobject_" + this.field_name + ";\n" +
+                     "  }\n" +
+                     "  set\n" +
+                     "  {\n" +
+                     "    if ( value == null )\n" +
+                     "    {\n" +
+                     "      this." + this.local_foreign_key.field_name + " = 0;\n" +
+                     "    }\n" +
+                     "    else\n" +
+                     "    {\n" +
+                     "      this." + this.local_foreign_key.field_name + " = value." + related_class.primary_key_field.field_name + ";\n" +
+                     "    }\n" +
+                     "    this.pobject_" + this.field_name + " = value;\n" +
+                     "  }\n" +
+        "}\n";
+      return code;
+    }
+
+    /**
+     * This method returns the code which will be used by the get_join_code method of a pobject to
+     * get the SQL join-code.
+     * @return A string which can be used in a generated vala code which contains the SQL join-code to load this relation.
+     */
+    public string get_join_code( )
+    {
+      PObjectClass related_class = classes[ this.non_null_type ];
+      string related_table = related_class.class_annotation.values[ "table_name" ];
+
+      return " left outer join " + related_table + " on " + related_table + "." + related_class.primary_key_field.db_field_name + " = " + this.local_foreign_key.db_field_name;
+    }
+
+    /**
+     * This method returns the addition to the fields clause of a select statement which joins this
+     * relation.
+     * @return A string which can be added before the from clause in a select statement which adds the
+     *         fields of the joined table.
+     */
+    public string get_join_fields( )
+    {
+      PObjectClass related_class = this.get_related_class( );
+      string related_table = related_class.class_annotation.values[ "table_name" ];
+
+      string[] fields = { };
+
+      foreach ( PObjectField field in related_class.fields.get_values( ) )
+      {
+        fields += related_table + "." + field.db_field_name + " as `" + this.field_name + "." + field.db_field_name + "`";
+      }
+
+      return string.joinv( ", ", fields );
+    }
+
+    /**
+     * This method will return the related class object of this relation.
+     * @return The class which this relation relates to.
+     */
+    public PObjectClass get_related_class( )
+    {
+      return classes[ this.non_null_type ];
+    }
   }
   
   /**
@@ -292,6 +515,12 @@ namespace PObject
     public HashTable<string?,PObjectField?> fields;
 
     /**
+     * The relations of this class.
+     * The key is the field name.
+     */
+    public HashTable<string?,PObjectRelation?> relations;
+
+    /**
      * This variable contains the primary key field of the object.
      */
     public PObjectField? primary_key_field;
@@ -306,6 +535,7 @@ namespace PObject
       this.class_name = class_name;
       this.class_annotation = class_annotation;
       this.fields = new HashTable<string?,PObjectField?>( str_hash, str_equal );
+      this.relations = new HashTable<string?,PObjectRelation?>( str_hash, str_equal );
       this.primary_key_field = null;
     }
 
@@ -354,26 +584,38 @@ namespace PObject
       code += "  }\n}\n";
 
       /* Add set_db_data method */
-      code += "\npublic override void set_db_data( HashTable<string?,string?> db_data )\n" +
+      code += "\npublic override void set_db_data( HashTable<string?,string?> db_data, bool contains_joins )\n" +
               "{\n" +
               "  this.new_record = false;\n" +
-              "  this.freeze_notify( );\n" +
-              "  foreach ( unowned string? db_field in db_data.get_keys( ) )\n" +
-              "  {\n" +
-              "    if ( db_data[ db_field ] != null )\n" +
-              "    {\n" +
-              "      switch ( db_field )\n" +
-              "      {\n";
+              "  this.freeze_notify( );\n";
       foreach ( unowned PObjectField field in this.fields.get_values( ) )
       {
-        
-        code += ( "        case \"%s\":\n" +
-                  "          this.%s = %s;\n" +
-                  "          break;\n\n" ).printf( field.db_field_name, field.field_name, field.get_convert_from_db( "db_data[ db_field ]" ) );
+        code += ( "  if ( db_data.lookup( \"%s\" ) != null )\n" +
+                  "  {\n" +
+                  "    this.%s = %s;\n" +
+                  "  }\n\n" ).printf( field.db_field_name, field.field_name, field.get_convert_from_db( "db_data[ \"" + field.db_field_name + "\" ]" ) );
       }
-      code += "      }\n" +
-              "    }\n" +
-              "  }\n" +
+      foreach ( unowned PObjectRelation relation in this.relations.get_values( ) )
+      {
+        code += "  this.pobject_%s = null;\n".printf( relation.field_name );
+      }
+      code += "  if ( contains_joins )\n" +
+              "  {\n";
+      foreach ( unowned PObjectRelation relation in this.relations.get_values( ) )
+      {
+        foreach ( unowned PObjectField field in relation.get_related_class( ).fields.get_values( ) )
+        {
+          code += ( "    if ( db_data.lookup( \"%s.%s\" ) != null )\n" +
+                    "    {\n" +
+                    "      if ( this.pobject_%s == null )\n" +
+                    "      {\n" +
+                    "        this.pobject_" + relation.field_name + " = new " + relation.get_related_class( ).class_name + "( );\n" +
+                    "      }\n" +
+                    "      this.pobject_%s.%s = %s;\n" +
+                    "    }\n" ).printf( relation.field_name, field.db_field_name, relation.field_name, relation.field_name, field.field_name, field.get_convert_from_db( "db_data[ \"" + relation.field_name + "." + field.db_field_name + "\" ]" ) );
+        }
+      }
+      code += "  }\n" +
               "  this.thaw_notify( );\n" +
               "}\n";
 
@@ -391,6 +633,67 @@ namespace PObject
                 "  }\n";
       }
       code += "}\n";
+
+      /* Add to_json_object method */
+      code += "public override Json.Object to_json_object( )\n" +
+              "{\n" +
+              "  Json.Object obj = new Json.Object( );\n";
+      foreach ( unowned PObjectField field in this.fields.get_values( ) )
+      {
+        code += "  obj." + field.get_convert_to_json( field.field_name ) + ";\n";
+      }
+      foreach ( unowned PObjectRelation relation in this.relations.get_values( ) )
+      {
+        code += "  if ( this.pobject_" + relation.field_name + " != null )\n" +
+                "  {\n" +
+                "    obj.set_object_member( \"" + relation.field_name + "\", this.pobject_" + relation.field_name + ".to_json_object( ) );\n" +
+                "  }\n";
+      }
+      code += "  return obj;\n" +
+              "}\n";
+
+      /* Add to_json method */
+      code += "public override string to_json( )\n" +
+              "{\n" +
+              "  Json.Object obj = this.to_json_object( );\n" +
+              "  Json.Node root = new Json.Node( Json.NodeType.OBJECT );\n" +
+              "  root.set_object( obj );\n" +
+              "  Json.Generator generator = new Json.Generator( );\n" +
+              "  generator.set_root( root );\n" +
+              "  return generator.to_data( null );\n" +
+              "}\n";
+
+      /* Add get_join_code method */
+      string join_code = "";
+
+      foreach ( PObjectRelation relation in this.relations.get_values( ) )
+      {
+        join_code += relation.get_join_code( );
+      }
+      if ( join_code == "" )
+      {
+        join_code = "null";
+      }
+      else
+      {
+        join_code = "\"" + join_code + "\"";
+      }
+      code += "public static string? get_join_code( )\n" +
+              "{\n" +
+              "  return " + join_code + ";\n" +
+              "}\n";
+
+      /* Add get_join_fields method */
+      string join_fields = "";
+
+      foreach ( PObjectRelation relation in this.relations.get_values( ) )
+      {
+        join_fields += ", " + relation.get_join_fields( );
+      }
+      code += "public static string get_join_fields( )\n" +
+              "{\n" +
+              "  return \"" + join_fields + "\";\n" +
+              "}\n";
 
       if ( this.primary_key_field != null )
       {
@@ -458,7 +761,7 @@ namespace PObject
                 "    HashTable<string?,string?>? row;\n" +
                 "    if ( ( row = stmt.result.fetchrow_hash( ) ) != null )\n" +
                 "    {\n" +
-                "      this.set_db_data( row );\n" +
+                "      this.set_db_data( row, false );\n" +
                 "      return true;\n" +
                 "    }\n" +
                 "    return false;\n" +
@@ -468,6 +771,12 @@ namespace PObject
                 "    throw new PObject.Error.DBERROR( \"Error while reloading object from the database! %s\", e.message );\n" +
                 "  }\n" +
                 "}\n";
+      }
+
+      /* Add relations */
+      foreach ( unowned PObjectRelation relation in this.relations.get_values( ) )
+      {
+        code += relation.get_vala_code( );
       }
 
       return code;
@@ -484,14 +793,28 @@ namespace PObject
     {
       MatchInfo mi;
       
-      if ( /^\s*(public|private|protected)?\s+([a-z0-9]+)\s+([a-zA-Z0-9_]+)\s+\{.*\}\s*$/.match( line, 0, out mi ) )
+      if ( /^\s*(public|private|protected)?\s+([A-Za-z0-9\?]+)\s+([a-zA-Z0-9_]+)\s+\{.*\}\s*$/.match( line, 0, out mi ) )
       {
         PObjectField field = new PObjectField( this, mi.fetch( 3 ), mi.fetch( 2 ), field_annotation );
         this.fields[ mi.fetch( 3 ) ] = field;
-
         if ( field.primary_key )
         {
           this.primary_key_field = field;
+        }
+
+        if ( field_annotation.values[ "has_one" ] != null )
+        {
+          string? field_name = field_annotation.values[ "relation_name" ];
+          if ( field_name == null && field.field_name.has_suffix( "_id" ) )
+          {
+            field_name = field.field_name.substring( 0, field.field_name.length - 3 );
+          }
+          else if ( field_name == null )
+          {
+            field_name = field_annotation.values[ "has_one" ].down( );
+          }
+          PObjectRelation relation = new PObjectRelation( this, field_name, field_annotation.values[ "has_one" ], RelationType.HAS_ONE, field );
+          this.relations[ field_name ] = relation;
         }
 
         return true;
@@ -527,18 +850,6 @@ namespace PObject
     }
     fin.seek( 0, FileSeek.SET );
 
-    string out_file = OpenDMLib.get_temp_file( );
-    FileStream? fout = null;
-    try
-    {
-      fout = OpenDMLib.IO.open( out_file, "wb" );
-    }
-    catch ( Error e )
-    {
-      DMLogger.log.error( 0, false, "Error while opening ${1} for writing! ${2}", out_file, e.message );
-      return;
-    }
-
     int64 line_nr = 0;
 
     bool class_found = false;
@@ -546,9 +857,6 @@ namespace PObject
     string? current_class_name = null;
     PObjectAnnotation? current_annotation = null;
     PObjectClass? current_class = null;
-
-    HashTable<string?,PObjectClass?> classes = new HashTable<string?,PObjectClass?>( str_hash, str_equal );
-    HashTable<int64?,string?> class_lines = new HashTable<int64?,string?>( int64_hash, int64_equal );
 
     while ( ( line = fin.read_line( ) ) != null )
     {
@@ -561,6 +869,7 @@ namespace PObject
         DMLogger.log.debug( 0, false, "${1}: Found class ${2} at line ${3}.", path, current_class_name, line_nr.to_string( ) );
 
         class_found = true;
+        current_class = null;
       }
 
       if ( class_found && line.contains( "{" ) )
@@ -598,9 +907,41 @@ namespace PObject
         }
       }
     }
+  }
 
+  public void preprocess_file_second_pass( string file )
+  {
+    FileStream? fin = null;
+    try
+    {
+      fin = OpenDMLib.IO.open( file, "rb" );
+    }
+    catch ( Error e )
+    {
+      DMLogger.log.error( 0, false, "Error while opening ${1} for reading! ${2}", file, e.message );
+      return;
+    }
+
+    string? line = fin.read_line( );
+    if ( line != null && line.contains( PObject.PREPROCESSED_HEADER ) )
+    {
+      return;
+    }
     fin.seek( 0, FileSeek.SET );
-    line_nr = 0;
+
+    string out_file = OpenDMLib.get_temp_file( );
+    FileStream? fout = null;
+    try
+    {
+      fout = OpenDMLib.IO.open( out_file, "wb" );
+    }
+    catch ( Error e )
+    {
+      DMLogger.log.error( 0, false, "Error while opening ${1} for writing! ${2}", out_file, e.message );
+      return;
+    }
+
+    int64 line_nr = 0;
 
     fout.puts( PObject.PREPROCESSED_HEADER + "\n" );
     while ( ( line = fin.read_line( ) ) != null )
@@ -623,6 +964,6 @@ namespace PObject
     fout = null;
     fin = null;
 
-    OpenDMLib.IO.copy( out_file, path );
+    OpenDMLib.IO.move( out_file, file );
   }
 }

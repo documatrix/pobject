@@ -34,6 +34,14 @@ public class TestPObject
         TestPObject.default_teardown
       )
     );
+    ts_pobject_object.add(
+      new GLib.TestCase(
+        "test_s_has_one_relation",
+        TestPObject.default_setup,
+        TestPObject.test_pobject_object_s_has_one_relation,
+        TestPObject.default_teardown
+      )
+    );
     ts_pobject.add_suite( ts_pobject_object ); 
     
     GLib.TestSuite.get_root( ).add_suite( ts_pobject );
@@ -53,6 +61,16 @@ public class TestPObject
 
     [PObject ( field_name = "comment" )]
     public string comment { get; set; }
+  }
+
+  [PObject ( table_name = "my_object_b", field_prefix = "my_" )]
+  public class MyObjectB : PObject.Object
+  {
+    [PObject ( field_name="id", primary_key = true ) ]
+    public uint64 id { get; set; }
+
+    [PObject ( has_one="MyObject" )]
+    public uint64 my_object_id { get; set; }
   }
 
   /**
@@ -114,6 +132,32 @@ public class TestPObject
       assert( objects[ i ].comment == "obj%u".printf( i + 1 ) );
     }
   }
+
+  /**
+   * This testcase tests the has_one relation type between objects.
+   */
+  public static void test_pobject_object_s_has_one_relation( )
+  {
+    MyObject m = new MyObject( );
+    m.comment = "obj1";
+    m.save( );
+    assert( m.id == 1 );
+
+    MyObjectB m_b = new MyObjectB( );
+    m_b.my_object = m;
+    assert( m_b.my_object_id == m.id );
+    m_b.save( );
+
+    MyObjectB? m_b2 = (MyObjectB?)MyObjectB.select_join( ).first( );
+    assert( m_b2 != null );
+    assert( m_b2.my_object.id == m.id );
+
+    m_b.my_object_id = 0;
+    m_b.save( );
+
+    m_b2.reload( );
+    assert( m_b2.my_object == null );
+  }
   
   /**
    * This is the default setup method for the PObject tests.
@@ -131,6 +175,8 @@ public class TestPObject
       PObject.init( DBLib.DBType.MYSQL, "hostname=localhost;database=test", "root", null );
       PObject.connection.execute( "drop table if exists my_object" );
       PObject.connection.execute( "create table my_object ( my_id bigint auto_increment primary key, my_comment varchar(255) )" );
+      PObject.connection.execute( "drop table if exists my_object_b" );
+      PObject.connection.execute( "create table my_object_b ( my_id bigint auto_increment primary key, my_my_object_id bigint unsigned not null )" );
     }
     catch ( PObject.Error.DBERROR e )
     {

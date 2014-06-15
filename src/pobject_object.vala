@@ -30,8 +30,9 @@ namespace PObject
     /**
      * This method will be called to initialize the variables of this object using the given result from the database.
      * @param db_data The data from the database.
+     * @param contains_joins This flag specifies if the given data row contains the data of joined tables.
      */
-    public abstract void set_db_data( HashTable<string?,string?> db_data );
+    public abstract void set_db_data( HashTable<string?,string?> db_data, bool contains_joins );
 
     /**
      * When you call this method the object will be inserted or updated in the database.
@@ -86,5 +87,17 @@ namespace PObject
      * @throws PObject.Error.DBERROR if an error occured while executing SQL statements.
      */
     public abstract bool reload( ) throws PObject.Error.DBERROR;
+
+    /**
+     * This method will return a json encoded string which represents this object as json object.
+     * @return A json encoded string representing this object.
+     */
+    public abstract string to_json( );
+
+    /**
+     * This method will return a Json.Object object which represents this object as json object.
+     * @return A json object filled with the object data.
+     */
+    public abstract Json.Object to_json_object( );
   }
 }

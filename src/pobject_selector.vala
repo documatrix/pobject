@@ -57,6 +57,11 @@ namespace PObject
     public string? order_by = null;
 
     /**
+     * This variable will contain the join code when the select statement should also select relations.
+     */
+    public string? join_code = null;
+
+    /**
      * This method will call the @see PObjectSelector.exec method to execute the select statement.
      * The difference to exec is, that "first" will set the limit count to 1 and return the first found object
      * or null if no object was found.
@@ -84,6 +89,11 @@ namespace PObject
     {
       StringBuilder statement = new StringBuilder.sized( 10 );
       statement.append_printf( "select %s from %s", this.fields, this.table_name );
+
+      if ( this.join_code != null )
+      {
+        statement.append( this.join_code );
+      }
 
       if ( this.where_clause != null )
       {
@@ -116,8 +126,12 @@ namespace PObject
         HashTable<string?,string?>? row;
         while ( ( row = stmt.result.fetchrow_hash( ) ) != null )
         {
+          foreach ( string key in row.get_keys( ) )
+          {
+            DMLogger.log.debug( 0, false, "  ${1} -> ${2}", key, row[ key ] ?? "null" );
+          }
           PObject.Object o = (PObject.Object)GLib.Object.new( this.pobject_class );
-          o.set_db_data( row );
+          o.set_db_data( row, this.join_code != null );
           result += o;
         }
 
@@ -133,12 +147,14 @@ namespace PObject
      * This constructor will create a new PObject selector with the given PObject class and the required fields.
      * @param pobject_class the class of the required pobject.
      * @param fields The fields to load from the database.
+     * @param join_code The code which should be used to use join to load related objects.
      */
-    public PObjectSelector( Type pobject_class, string table_name, string fields )
+    public PObjectSelector( Type pobject_class, string table_name, string fields, string? join_code )
     {
       this.pobject_class = pobject_class;
       this.table_name = table_name;
       this.fields = fields;
+      this.join_code = join_code;
 
       stdout.printf( "Creating pobject selector for class %s\n", pobject_class.name( ) );
     }
