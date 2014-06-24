@@ -113,7 +113,7 @@ namespace PObject
 
       try
       {
-        DMLogger.log.debug( 0, false, "[SQL] ${1};", statement.str );
+        DMLogger.log.debug( 2, false, "[SQL] ${1};", statement.str );
         DBLib.Statement stmt = PObject.connection.prepare( statement.str );
         if ( this.statement_params.length > 0 )
         {
@@ -128,7 +128,7 @@ namespace PObject
         {
           foreach ( string key in row.get_keys( ) )
           {
-            DMLogger.log.debug( 0, false, "  ${1} -> ${2}", key, row[ key ] ?? "null" );
+            DMLogger.log.debug( 8, false, "  ${1} -> ${2}", key, row[ key ] ?? "null" );
           }
           PObject.Object o = (PObject.Object)GLib.Object.new( this.pobject_class );
           o.set_db_data( row, this.join_code != null );
@@ -139,7 +139,7 @@ namespace PObject
       }
       catch ( DBLib.DBError e )
       {
-        throw new PObject.Error.DBERROR( "Error while selecting objects from the database using statement %s! %s", statement, e.message );
+        throw new PObject.Error.DBERROR( "Error while selecting objects from the database using statement %s! %s", statement.str, e.message );
       }
     }
 
@@ -155,8 +155,6 @@ namespace PObject
       this.table_name = table_name;
       this.fields = fields;
       this.join_code = join_code;
-
-      stdout.printf( "Creating pobject selector for class %s\n", pobject_class.name( ) );
     }
 
     /**

@@ -10,7 +10,7 @@ namespace PObject
   public static const string PREPROCESSED_HEADER = "/* POBJECT PREPROCESSED */";
 
   private static HashTable<string?,PObjectClass?> classes;
-  private static HashTable<int64?,string?> class_lines;
+  private static HashTable<string?,HashTable<int64?,string?>> class_lines;
 
   /**
    * This method can be called for a file or directory to process it.
@@ -21,13 +21,20 @@ namespace PObject
   public void preprocess( string path )
   {
     PObject.classes = new HashTable<string?,PObjectClass?>( str_hash, str_equal );
-    PObject.class_lines = new HashTable<int64?,string?>( int64_hash, int64_equal );
+    PObject.class_lines = new HashTable<string?,HashTable<int64?,string?>>( str_hash, str_equal );
 
     OpenDMLib.DMArray<string> files = new OpenDMLib.DMArray<string>( );
     preprocess_first_pass( path, files );
     preprocess_second_pass( files );
   }
 
+  /**
+   * This method can be called to do the first pass of the preprocessing for a directory.
+   * It will loop through the given path and call the @see PObject.preprocess_file method for each file.
+   * It will also add each preprocessed file to the given files DMArray.
+   * @param path A directory which should be used to search for files and preprocess them.
+   * @param files A DMArray in which every preprocessed file should be added.
+   */
   public void preprocess_first_pass( string path, OpenDMLib.DMArray<string> files )
   {
     if ( OpenDMLib.IO.file_exists( path ) )
@@ -56,6 +63,11 @@ namespace PObject
     }
   }
 
+  /**
+   * This method will call the @see PObject.preprocess_file_second_pass method for each file which is stored
+   * in the given files DMArray.
+   * @param files A DMArray containing the files which should be preprocessed.
+   */
   public void preprocess_second_pass( OpenDMLib.DMArray<string> files )
   {
     DMLogger.log.info( 0, false, "Preprocessing second pass..." );
@@ -416,7 +428,7 @@ namespace PObject
      */
     public string get_vala_code( )
     {
-      PObjectClass related_class = classes[ this.non_null_type ];
+      PObjectClass? related_class = classes[ this.non_null_type ];
 
       string code = "private " + this.non_null_type + "? pobject_" + this.field_name + ";\n" +
                      "public " + this.type + " " + this.field_name + "{\n" +
@@ -465,7 +477,13 @@ namespace PObject
      */
     public string get_join_fields( )
     {
-      PObjectClass related_class = this.get_related_class( );
+      PObjectClass? related_class = this.get_related_class( );
+      if ( related_class == null )
+      {
+        DMLogger.log.error( 0, false, "Error while generating join fields code for relation ${1}! Related class ${2} not found!", this.field_name, this.non_null_type );
+        return "";
+      }
+      
       string related_table = related_class.class_annotation.values[ "table_name" ];
 
       string[] fields = { };
@@ -603,6 +621,11 @@ namespace PObject
               "  {\n";
       foreach ( unowned PObjectRelation relation in this.relations.get_values( ) )
       {
+        if ( relation.get_related_class( ) == null )
+        {
+          DMLogger.log.error( 0, false, "Error while generating template code for class ${1}! Related class ${2} for field ${3} not found!", this.class_name, relation.field_name, relation.non_null_type );
+          continue;
+        }
         foreach ( unowned PObjectField field in relation.get_related_class( ).fields.get_values( ) )
         {
           code += ( "    if ( db_data.lookup( \"%s.%s\" ) != null )\n" +
@@ -843,12 +866,7 @@ namespace PObject
       return;
     }
 
-    string? line = fin.read_line( );
-    if ( line != null && line.contains( PObject.PREPROCESSED_HEADER ) )
-    {
-      return;
-    }
-    fin.seek( 0, FileSeek.SET );
+    string? line;
 
     int64 line_nr = 0;
 
@@ -887,7 +905,13 @@ namespace PObject
 
         current_class = new PObjectClass( current_class_name, current_annotation );
         classes[ current_class_name ] = current_class;
-        class_lines[ line_nr ] = current_class_name;
+
+        if ( class_lines[ path ] == null )
+        {
+          class_lines[ path ] = new HashTable<int64?,string?>( int64_hash, int64_equal );
+        }
+        
+        class_lines[ path ][ line_nr ] = current_class_name;
 
         current_class_name = null;
         current_annotation = null;
@@ -950,9 +974,9 @@ namespace PObject
   
       fout.puts( line + "\n" );
 
-      if ( class_lines[ line_nr ] != null )
+      if ( class_lines[ file ] != null && class_lines[ file ][ line_nr ] != null )
       {
-        PObjectClass? klass = classes[ class_lines[ line_nr ] ];
+        PObjectClass? klass = classes[ class_lines[ file ][ line_nr ] ];
         if ( klass != null )
         {
           DMLogger.log.debug( 0, false, "Injecting class code of class ${1} after line ${2}", klass.class_name, line_nr.to_string( ) );

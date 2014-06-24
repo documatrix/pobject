@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS schema_versions (
   schema_index BIGINT(20) NOT NULL DEFAULT 0
 )
 ";
-      DMLogger.log.debug( 0, false, "Ensuring that schema_versions table exists..." );
+      DMLogger.log.debug( 2, false, "Ensuring that schema_versions table exists..." );
       PObject.connection.execute( create_statement );
     }
     catch ( DBLib.DBError e )

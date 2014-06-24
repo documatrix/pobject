@@ -93,7 +93,7 @@ namespace PObject
       if ( migration.migrated( ) )
       {
         /* This migration was executed already. */
-        DMLogger.log.debug( 0, false, "Migration ${1} is already done.", migration_name ); 
+        DMLogger.log.debug( 2, false, "Migration ${1} is already done.", migration_name ); 
       }
       else
       {
